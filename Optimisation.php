@@ -2,8 +2,8 @@
 
 class Optimisation 
 {
-	private $xmin;
-	private $xmax;
+	private $min_desk;
+	private $max_desk;
 	private $sla;
 	private $weight_sla;
 	private $weight_pax;
@@ -11,64 +11,82 @@ class Optimisation
 	private $weight_churn;
 	private $block_width;
 	private $smoothing_width;
-	private $win_width;
-	private $win_step;
+	private $window_width;
+	private $window_step;
 	private $concavity_limit;
 	private $current_work = array();
 	private $current_work_step = array();
-	private $qstart;
-	private $churn_start;
-	private $time_break;
+	private $existing_queue;
+	private $existing_staff;
+	private $time_limit;
+	private $work_length;
+	private $desks;
+	private $start_time;
 
-	function Optimise($work){
-		$starttime = time();
-		$this->time_limit = 10;
-		$this->sla=12;
-		$this->weight_sla=10;
-		$this->weight_pax=1;
-		$this->weight_staff=3;
-		$this->weight_churn=45;
-		$this->xmin=1; //The minimum number of people on desks
-		$this->xmax=10; //Maximum number of people on desks
-		$this->block_width = 15; //number of timeslots forming smallest block for changing desks - i.e. shortest time someone can be on a desk
-		$this->smoothing_width = 15; 
-		$this->win_width = 90; //must be an even multiple of block width
-		$this->concavity_limit=30;
-		$this->qstart=0;
-		$this->churn_start=0;
-		$this->win_step = 60;
-		$worklength = count($work);
-		$win_start = 0;
-		if($this->win_step > $this->win_width) throw new Exception('Incorrectly configured. Win Width is smaller than win step - so some bins will be skipped over in the calculation');
-		if($this->win_width > count($work)) $this->win_width = count($work);
+	private function configure($set_options){
+		$this->weight_sla=$set_options["weight_sla"];
+		$this->weight_pax=$set_options["weight_pax"];
+		$this->weight_staff=$set_options["weight_staff"];
+		$this->weight_churn=$set_options["weight_churn"];
+		$this->block_width=$set_options["block_width"]; //number of minutes forming smallest block for changing desks - i.e. shortest time someone can be on a desk
+		$this->smoothing_width=$set_options["smoothing_width"]; 
+		$this->window_width=$set_options["window_width"]; //must be an even multiple of block width
+		$this->window_step=$set_options["window_step"];
+		$this->concavity_limit=$set_options["concavity_limit"];
+		$this->min_desk=$set_options["min_desk"]; //the minimum number of desks open
+		$this->max_desk=$set_options["max_desk"]; //the maximum number of desks open
+		$this->sla=$set_options["sla"];
+		$this->time_limit=$set_options["time_limit"];
+		$this->existing_queue=$set_options["existing_queue"];
+		$this->existing_staff=$set_options["existing_staff"];
+		if($this->window_step > $this->window_width) throw new Exception('Incorrectly configured. Win Width is smaller than win step - so some bins will be skipped over in the calculation');
 		if($this->concavity_limit <0) throw new Exception('Incorrectly configured. Concavity limit must be greater than 0');
 		if($this->time_limit <= 0) throw new Exception('Incorrectly configured. Time limit must be greater than 0'); 
-		if($this->xmin < 0 || $this->xmax<0) throw new Exception('Incorrectly configured. Cannot have negative numbers of desks open');
-		if($this->xmin > $this->xmax) throw new Exception('Incorrectly configured. Maximum desks open is smaller than minimum desks open');
-		if(!is_int($this->xmin) || !is_int($this->xmax)) throw new Exception('Incorrectly configured. Minimum and maximum desks open must be integers'); 
-		if(!is_int($this->block_width)) throw new Exception('Incorrectly configured. Block width must be an integer');
-		if(!is_int($this->smoothing_width)) throw new Exception('Incorrectly configured. Smoothing width must be an integer');
-		if(!is_int($this->win_width)) throw new Exception('Incorrectly configured. Window width must be an integer');
-		if($this->win_width % (2*$this->block_width) !=0)throw new Exception('Incorrectly configured. Window width should be an even multiple of Block width');
-		if(count($work)%$this->block_width !=0)throw new Exception('Incorrectly configured. Work is not divisible by block width');
+		if($this->min_desk < 0 || $this->max_desk<0) throw new Exception('Incorrectly configured. Cannot have negative numbers of desks open');
+		if($this->min_desk > $this->max_desk) throw new Exception('Incorrectly configured. Maximum desks open is smaller than minimum desks open');
+		if(!is_int($this->min_desk) || !is_int($this->max_desk)) throw new Exception('Incorrectly configured. Minimum and maximum desks open must be integers'); 
+		if(!is_int($this->block_width) || $this->block_width<0) throw new Exception('Incorrectly configured. Block width must be a positive integer');
+		if(!is_int($this->smoothing_width) || $this->smoothing_width<0) throw new Exception('Incorrectly configured. Smoothing width must be a positive integer');
+		if(!is_int($this->window_width) || $this->window_width<0) throw new Exception('Incorrectly configured. Window width must be a positive integer');
+		if($this->window_width % (2*$this->block_width) !=0)throw new Exception('Incorrectly configured. Window width should be an even multiple of Block width');
+		if($this->work_length%$this->block_width !=0)throw new Exception('Incorrectly configured. Work is not divisible by block width');
+		if($this->smoothing_width > $this->window_width)throw new Exception('Incorrectly configured. Smoothing width must be less than or equal to window width');
+		if($this->window_step%$this->block_width!=0 || $this->window_step<0)throw new Exception('Incorrectly configured. Window step should be a multiple of or equal to block width');
+		if($this->window_width > $this->work_length) $this->window_width = $this->work_length;
+	}
+
+	function time_out(){
+		$newtime = time();
+		$timepassed = $newtime - $this->start_time;
+		if($timepassed > $this->time_limit){
+			return $this->desks;
+		}
+	}
+
+
+	function Optimise($work, $set_options){
+		$this->start_time=time();
+		$this->work_length = count($work);
+		$options=$this->configure($set_options);	
+		$win_start = 0;
 		//call initial estimate which smooths out the work to provide a guess at how many desks should be open.
-		$desks=$this->initial_est($work, $this->block_width, $this->smoothing_width);
+		$this->desks=$this->initial_estimate($work, $this->block_width, $this->smoothing_width);
 		//Iterate over the windows. Windows will tend to overlap with each other. 
-		for($time=$win_start; $time<count($work); $time=$time+$this->win_step){
+		for($time=$win_start; $time<count($work); $time=$time+$this->window_step){
 			//Fill an array called current_work with the work within the window we are looking at.
-			for($arraypart=0; $arraypart<$this->win_width; $arraypart++){
+			for($arraypart=0; $arraypart<$this->window_width; $arraypart++){
 				$element = $time+$arraypart;
 				$this->current_work[$arraypart]=$work[$element];
 				//The current work not including any overlaps with the next step. Needed to figure out the residual queue at the start of the next step.
-				if($arraypart < $this->win_step){
+				if($arraypart < $this->window_step){
 					$this->current_work_step[$arraypart]=$work[$element];
 				}
 			}
 			$block_guess=array();
 			$element_i=0;
 			//fill an array with the guesses for each block - but condense each block down to 1 value (as opposed to one value repeated). 
-			for($blocks=$time; $blocks < ($time+$this->win_width) ; $blocks=$blocks+$this->block_width){
-				$block_guess[$element_i] = $desks[$blocks];
+			for($blocks=$time; $blocks < ($time+$this->window_width) ; $blocks=$blocks+$this->block_width){
+				$block_guess[$element_i] = $this->desks[$blocks];
 				$element_i++;
 			}
 			$block_i=0;
@@ -76,13 +94,13 @@ class Optimisation
 			$block_optimum_expand_step=array();
 			//calls the optimisation function
 			$block_optimum =$this->branch_bound($block_guess);
-			for($blocks=$time; $blocks < ($time+$this->win_width) ; $blocks=$blocks+$this->block_width){
+			for($blocks=$time; $blocks < ($time+$this->window_width) ; $blocks=$blocks+$this->block_width){
 				//refill the desks with the newly optimised estimate - with the blocks uncondensed (i.e. 1 value per minute instead of 1 value per block)	
 				for($element_j=0; $element_j < $this->block_width; $element_j++){
-					$desks[$blocks+$element_j] = $block_optimum[$block_i];
+					$this->desks[$blocks+$element_j] = $block_optimum[$block_i];
 					//create a block optimum array with 1 value per minute not including any overlaps with the next step. Needed to figure out the residual queue at the start of the next step. 
-					$timeandstep = $time+$this->win_step;
-					if($blocks< $time+$this->win_step){
+					$timeandstep = $time+$this->window_step;
+					if($blocks< $time+$this->window_step){
 						if($blocks < count($work)){
 						$block_optimum_expand_step[$block_i*$this->block_width+$element_j] = $block_optimum[$block_i];
 						}
@@ -91,31 +109,27 @@ class Optimisation
 				$block_i++;
 			}
 			//Find the last desk of the window before any overlap in order to use as the churn start for the next window.
-			$this->churn_start=end($block_optimum_expand_step);
+			$this->existing_staff=end($block_optimum_expand_step);
 			//Find the residual queue at the end of the last step before any overlap. This residual queue will need to be processed at the start of the next window. 
 			$simqueue= $this->process_work($this->current_work_step, $block_optimum_expand_step);
-			$this->qstart=$simqueue["residual"];  
-			//If we are approaching the end of the day and the day does not divide neatly into blocks of win_width, change the last window to be smaller so the whole day can be processed. 
-			if($time+$this->win_step >(count($work)-$this->win_width)){
-				$this->win_width=count($work)-($time+$this->win_step);
+			$this->existing_queue=$simqueue["residual"];  
+			//If we are approaching the end of the day and the day does not divide neatly into blocks of window_width, change the last window to be smaller so the whole day can be processed. 
+			if($time+$this->window_step >(count($work)-$this->window_width)){
+				$this->window_width=count($work)-($time+$this->window_step);
 				//get rid of the bits of the arrays that are no longer needed as win width is now smaller. The values themselves are reset on the next loop through. 
-				array_splice($this->current_work, $this->win_width);
-				array_splice($this->current_work_step, $this->win_width);
+				array_splice($this->current_work, $this->window_width);
+				array_splice($this->current_work_step, $this->window_width);
 			}
-			$newtime = time();
-			$timepassed = $newtime - $starttime;
-			//If the processing time exceeds the time limit, return our best guess so far. 
-			if($timepassed > $this->time_limit){
-				return $desks;
-			}
+			$this->time_out();
+
 		}
-		return $desks;
+		return $this->desks;
 	}
 
-	private function initial_est($work, $width, $s_width)
+	private function initial_estimate($work, $width, $s_width)
 	{
 		$smoothwork=$work;
-		$desks=array();
+		$this->desks=array();
 		//Applying a moving average to the work to smooth it out to help us guess desk requirements. Smooth using the previous s_width steps. Start at s_width to ensure there are sufficient previous bins to use for smoothing. 
 		for($j=$s_width; $j < count($work); $j++){
 			for($k=1;$k < $s_width ; $k++){
@@ -145,15 +159,15 @@ class Optimisation
 				$mean=$mean+round($work[$element]);
 			}
 			$mean=ceil($mean/$width);
-			//If the mean is larger or smaller than xmax or xmin then set to xmax or xmin. 
-			if($mean<$this->xmin) $mean=$this->xmin;
-			if($mean>$this->xmax) $mean=$this->xmax;
+			//If the mean is larger or smaller than max_desk or min_desk then set to max_desk or min_desk. 
+			if($mean<$this->min_desk) $mean=$this->min_desk;
+			if($mean>$this->max_desk) $mean=$this->max_desk;
 			//For the length of block, add to the array the number of desks estimate. 
 			for($k=0;$k<$width;$k++){
-				array_push($desks, "$mean");
+				array_push($this->desks, "$mean");
 			}
 		}
-		return $desks;
+		return $this->desks;
 	}
 
 	private function branch_bound($starting_x)
@@ -162,12 +176,13 @@ class Optimisation
 		$n=count($x);
 		//Check the cost of the initial estimate.
 		$best_so_far = $this->cost($incumbent);
-		//Set up a 2-D array. For each desk guess, there is a list of neighbouring points, starting with those closest to the desk guess and moving outwards until both xmin and xmax are reached. 
+		//Set up a 2-D array. For each desk guess, there is a list of neighbouring points, starting with those closest to the desk guess and moving outwards until both min_desk and max_desk are reached. 
 		$points = $this-> neighbouring_points_setup($starting_x);
 		//move the cursor to the last desk in the window.
 		$cursor = $n-1;
 		while($cursor >= 0){
 			while(count($points[$cursor])>0){
+				$this->time_out();
 				//Set the desk guess to the next neighbouring point to be tested and remove the neighbouring point from the list. 
 				$x[$cursor]=$points[$cursor][0];
 				unset($points[$cursor][0]);
@@ -233,22 +248,22 @@ class Optimisation
 		$pax_penalty = $simres["total_wait"];
 		//The sla penalty is the number of passenger minutes that exceed the sla. To avoid doing this, a high weight is associated with this penalty. 
 		$sla_penalty = $simres["excess_wait"];
-
+		
 		//All penalties are multiplied by their relative weights and summed to find the total cost. 
 		$total_penalty = $this->weight_pax*$pax_penalty+$this->weight_staff*$staff_penalty+$this->weight_churn*$churn_penalty+$this->weight_sla*$sla_penalty;
 		return $total_penalty;
 	}
 
 	private function process_work($work, $capacity){
-		$work_length = count($work);
+		$this_work_length = count($work);
 		$capacity_length = count($capacity);
-		if($work_length!=$capacity_length) throw new Exception('Internal error. Work length does not equal capacity length');
-		//If there is any preexisting queue left over from the previous time window - this needs to be processed first. Note - as time windows frequently overlaap - we find qstart using the previous time window with overlap removed.  
-		if(count($this->qstart) > 0){
-			$startq = $this->qstart[0];
+		if($this_work_length!=$capacity_length) throw new Exception('Internal error. Work length does not equal capacity length');
+		//If there is any preexisting queue left over from the previous time window - this needs to be processed first. Note - as time windows frequently overlaap - we find existing_queue using the previous time window with overlap removed.  
+		if(count($this->existing_queue) > 0){
+			$startq = $this->existing_queue[0];
 			$q=array("$startq");
-			for($get_q =1 ;$get_q < count($this->qstart)-1; $get_q++){
-				array_push($q, $this->qstart[$get_q]);
+			for($get_q =1 ;$get_q < count($this->existing_queue)-1; $get_q++){
+				array_push($q, $this->existing_queue[$get_q]);
 			}
 		}
 		else{
@@ -261,6 +276,7 @@ class Optimisation
 		$excess_wait = 0;
 		//Loop through the time slots
 		for($t=0; $t < count($work); $t++){
+			$this->time_out();
 			//Add the work from this minute to the queue.  
 			array_push($q, $work[$t]);
 			//Get the number of desks open. 
@@ -307,18 +323,15 @@ class Optimisation
 		$sum_rem_queue=array_sum($q);
 		$lastdesk=end($capacity);
 		$over_sla_wait = 0;
-
 		if($sum_rem_queue !=0){
 			//how long is capacity full? how many pax are left after full capacity?
 			$full_cap=floor($sum_rem_queue/$lastdesk);
 			$rem_pax = $sum_rem_queue-($full_cap*$lastdesk);
-
 			//At end of timeslot - how long have pax been in queue?
+			$qlength=count($q);
 			for($pax=0;$pax <count($q); $pax++){
-				$adding_tot = $q[$pax]*(count($q)-2-$pax);
-				$total_wait+=$q[$pax]*(count($q)-2-$pax);
+				$total_wait+=$q[$pax]*(count($q)-$pax-1);
 			}
-
 			//total wait for pax after end of time slot. (1st term - length of time capacity is full, 2nd term - process the remainder)
 			$fullcapwait = $lastdesk*$full_cap*($full_cap+1)/2;
 			$remwait = $rem_pax *($full_cap+1);
@@ -372,7 +385,7 @@ class Optimisation
 
 	private function churn($x){
 		$churn = 0;
-		$xlag = $this->churn_start;
+		$xlag = $this->existing_staff;
 		for($i = 0; $i<count($x) ; $i++){
 			$xnext = $x[$i];
 			//Each time a member of staff has to open a new desk - add this number to churn. 
@@ -388,9 +401,9 @@ class Optimisation
 	private function neighbouring_points_refill($x, $orig, $cursor){
 		//Refill the neighbouring points at the point cursor. x is the array. orig is the best guess so far at the point cursor is at. cursor tells the function which points in x to refill. 
 		$points = $x;
-		for($j = 1; $j < ($this->xmax-$this->xmin);$j++){
-			if($orig-$j >= $this->xmin) array_push($points[$cursor], ($orig-$j));
-			if($orig+$j <= $this->xmax) array_push($points[$cursor], ($orig+$j));
+		for($j = 1; $j < ($this->max_desk-$this->min_desk);$j++){
+			if($orig-$j >= $this->min_desk) array_push($points[$cursor], ($orig-$j));
+			if($orig+$j <= $this->max_desk) array_push($points[$cursor], ($orig+$j));
 
 		}
 		return $points;
@@ -402,9 +415,9 @@ class Optimisation
 		for($i = 0; $i< count($x) ; $i++){
 			$orig = $points[$i];
 			$points[$i] = array();
-			for($j = 1; $j < ($this->xmax-$this->xmin);$j++){
-				if($orig-$j >= $this->xmin) array_push($points[$i], ($orig-$j));
-				if($orig+$j <= $this->xmax) array_push($points[$i], ($orig+$j));
+			for($j = 1; $j < ($this->max_desk-$this->min_desk);$j++){
+				if($orig-$j >= $this->min_desk) array_push($points[$i], ($orig-$j));
+				if($orig+$j <= $this->max_desk) array_push($points[$i], ($orig+$j));
 
 			}
 		}
