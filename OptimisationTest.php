@@ -34,7 +34,6 @@ class OptimisationTest extends PHPUnit_Framework_TestCase
 	$b=$a->Optimise($work, $set_options);
 	$timeend=microtime(true);
 	$time_interval = $timeend - $timestart;
-	print "$time_interval \n"; 
 	$this->assertLessThan(2, $time_interval);
 	}
 	
@@ -265,7 +264,7 @@ class OptimisationTest extends PHPUnit_Framework_TestCase
 		if(rand(0, 100)/100 < 0.8){
 		array_push($work, rand(0, 100));}
 		else{
-		array_push($work, rand(100, 150));}
+		array_push($work, rand(100, 175));}
 	}
 	$set_options=array('weight_sla'=>10, 
 			'weight_pax'=>1, 
@@ -288,7 +287,6 @@ class OptimisationTest extends PHPUnit_Framework_TestCase
 	$b=$a->Optimise($work, $set_options);
 	$timeend=microtime(true);
 	$time_interval = $timeend - $timestart;
-	print $time_interval;
 	$this->assertLessThan(20, $time_interval);
 	}
 }
