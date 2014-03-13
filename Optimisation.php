@@ -14,21 +14,20 @@ class Optimisation
 	private $weight_staff;
 	private $weight_churn;
 	private $block_width;
-	private $smoothing_width;
 	private $window_width;
 	private $window_step;
 	private $concavity_limit;
 	private $current_work = array();
 	private $current_work_step = array();
 	private $existing_queue;
+	private $input_queue;
+	private $input_queue_time;
 	private $existing_staff;
 	private $time_limit;
 	private $work_length;
-	public $desks;
+	public  $desks;
 	private $start_time;
-	private $test1=array();
-	private $test2=array();
-	private $test=array();
+	private $current_timeslot;
 
 
 	private function configure($set_options){
@@ -59,7 +58,6 @@ class Optimisation
 		}
 		else{
 			$this->block_width=$set_options["block_width"]; //number of minutes forming smallest block for changing desks - i.e. shortest time someone can be on a desk
-			$this->smoothing_width=$set_options["smoothing_width"];
 			$this->window_width=$set_options["window_width"]; //must be an even multiple of block width
 			$this->window_step=$set_options["window_step"];
 		}
@@ -68,16 +66,19 @@ class Optimisation
 			$this->config_change=True;
 		}
 		else{ $this->concavity_limit=$set_options["concavity_limit"];}
-		if(!array_key_exists("existing_queue", $set_options)){ $this->existing_queue=0;}
-		else{ $this->existing_queue=$set_options["existing_queue"];}
-		if(!array_key_exists("existing_staff", $set_options)){ $this->existing_staff=0;}
-		else{ $this->existing_staff=$set_options["existing_staff"];}
-		if(!array_key_exists("smoothing_width", $set_options)){ $this->smoothing_width=$this->block_width;}
-		else{$this->smoothing_width=$set_options["smoothing_width"];}
+		if(!array_key_exists("input_queue_time", $set_options) && array_key_exists("input_queue", $set_options) && $set_options["input_queue"]!=0)
+			throw new Exception('Input queue length specified but also need input queue time');
+		elseif(!array_key_exists("input_queue_time", $set_options)) $this->input_queue_time = 0;
+		else{ $this->input_queue_time = $set_options["input_queue_time"];}
+		if(!array_key_exists("input_queue", $set_options) && array_key_exists("input_queue_time", $set_options))
+			throw new Exception('Input queue time specified but not input queue length');
+		if(!array_key_exists("input_queue", $set_options)){ $this->input_queue=0;}
+		else{ $this->input_queue=$set_options["input_queue"];}
 		if(!array_key_exists("min_desk", $set_options)){throw new Exception('Undefined minimum desk requirement');}
 		else{$this->min_desk=$set_options["min_desk"];}
 		if(!array_key_exists("max_desk", $set_options)){throw new Exception('Undefined maximum desk requirement');}
-		else{ $this->max_desk=$set_options["max_desk"];}
+		elseif(count($set_options["max_desk"])==1){for($push=0; $push < $this->work_length; $push++){array_push($this->max_desk, $set_options["max_desk"]);}}
+		else{$this->max_desk=$set_options["max_desk"];}
 		if(!array_key_exists("sla", $set_options)){throw new Exception('Undefined SLA');}
 		else{ $this->sla=$set_options["sla"];}
 		if(!array_key_exists("time_limit", $set_options)){throw new Exception('Undefined SLA');}
@@ -92,20 +93,19 @@ class Optimisation
 		if($this->min_desk < 0) throw new Exception('Incorrectly configured. Cannot have negative numbers of desks open');
 		if(!is_int($this->min_desk)) throw new Exception('Incorrectly configured. Minimum desks open must be an integer'); 
 		if(!is_int($this->block_width) || $this->block_width<0) throw new Exception('Incorrectly configured. Block width must be a positive integer');
-		if(!is_int($this->smoothing_width) || $this->smoothing_width<0) throw new Exception('Incorrectly configured. Smoothing width must be a positive integer');
 		if(!is_int($this->window_width) || $this->window_width<0) throw new Exception('Incorrectly configured. Window width must be a positive integer');
 		if($this->window_width % (2*$this->block_width) !=0)throw new Exception('Incorrectly configured. Window width should be an even multiple of Block width');
 		if($this->work_length%$this->block_width !=0)throw new Exception('Incorrectly configured. Work is not divisible by block width');
-		if($this->smoothing_width > $this->window_width)throw new Exception('Incorrectly configured. Smoothing width must be less than or equal to window width');
 		if($this->window_step%$this->block_width!=0 || $this->window_step<0)throw new Exception('Incorrectly configured. Window step should be a multiple of or equal to block width');
 		if($this->window_width > $this->work_length) $this->window_width = $this->work_length;
 		foreach($this->max_desk as $testdesk) if($testdesk < 0 || !is_int($testdesk)) throw new Exception('Incorrectly configured, max_desk array must be all integers');
 		foreach($this->max_desk as $testdesk) if($testdesk < $this->min_desk) throw new Exception('Incorrectly configured, max desk array must be all greater than or equal to min desks');
+		if(!is_int($this->input_queue_time) || $this->input_queue_time < 0) throw new Exception('Incorrectly configured. Input queue time must be a positive integer');
 		return "1";
 	}
 
 
-	function Optimise($work, &$desks, $set_options){
+	function Optimise($work, &$desks, &$queues, $set_options){
 		$simqueue=array();
 		$this->no_manpower=False;
 		$this->start_time=time();
@@ -117,12 +117,12 @@ class Optimisation
 		$empty_arr=array();
 		for($z=0; $z<$this->work_length;$z++){array_push($empty_arr, 0);}
 		if($empty_arr==$desks){
-		$desks=$this->initial_estimate($work, $this->block_width, $this->smoothing_width);
-		$desks=$this->initial_estimate1($work, $this->block_width, $this->smoothing_width);
-		$desks=$this->initial_estimate2($work, $this->block_width, $this->smoothing_width);}
+		$desks=$this->initial_estimate($work, $this->block_width);}
+		$queues = $this->calculate_queue_length($work, $desks);
 		//Iterate over the windows. Windows will tend to overlap with each other. 
 		try{
 		for($time=$win_start; $time<count($work); $time=$time+$this->window_step){
+			$this->current_timeslot = $time;
 			//Fill an array called current_work with the work within the window we are looking at.
 			for($arraypart=0; $arraypart<$this->window_width; $arraypart++){
 				$element = $time+$arraypart;
@@ -167,6 +167,7 @@ class Optimisation
 			$this->existing_queue=$simqueue["residual"];}
 			else{$this->existing_queue = 0;} 
 			if($simqueue["excess_wait"] > 0){$this->no_manpower = True;}
+			$queue_array = array();
 			//If we are approaching the end of the day and the day does not divide neatly into blocks of window_width, change the last window to be smaller so the whole day can be processed. 
 			if($time+$this->window_step >(count($work)-$this->window_width)){
 				$this->window_width=count($work)-($time+$this->window_step);
@@ -175,6 +176,7 @@ class Optimisation
 				array_splice($this->current_work_step, $this->window_width);
 			}
 			if(time()-$this->start_time > $this->time_limit){
+				$queues = $this->calculate_queue_length($work, $desks);
 				if($this->config_change == True && $this->no_manpower==True) return "123";
 				if($this->no_manpower == True) return "12";
 				if($this->config_change == True) return "13";
@@ -186,68 +188,14 @@ class Optimisation
 			if($this->config_change == True) return "34";
 			return "4";
 		}	
-		
-		$this->find_best_init_est($desks);
+		$queues = $this->calculate_queue_length($work, $desks);
 		if($this->config_change == True && $this->no_manpower==True) return "23";
 		if($this->no_manpower == True) return "2";
 		if($this->config_change == True) return "3";
 		else return "0";
 	}
-	private function initial_estimate1($work, $width, $s_width)
-	{
-		$timetest1=microtime(true);
-		$arraybins = count($work)/$width;
-		//Takes the maximum desks array and checks that it is in 15 minute blocks. If it is not - assume the lowest available number of desks available in a block is the maximum number of desks for that block.
-		for($i=0; $i<$arraybins; $i++){
-			$lowest_max_desk=9999999;
-			for($j=0;$j<$width;$j++){
-				$element=$i*$width+$j;
-				if($this->max_desk[$element] < $lowest_max_desk) $lowest_max_desk=$this->max_desk[$element];
-			}
-			for($k=0;$k<$width;$k++){
-				$element=$i*$width+$k;
-				$this->max_desk[$element]=$lowest_max_desk;
-			}
-		}
-		-$more_work_than_max_desk=0;
-		$desk_rec=array();
-		$shifted_work=array();
-		for($i=0; $i<$arraybins;$i++){
-			$block_mean=0;
-			$work[$i*$width]+=$more_work_than_max_desk;
-			for($j=0;$j<$width;$j++){
-				$element=$i*$width+$j;
-				print "$work[$element]  ";
-				$block_mean+=$work[$element];
-			}
-			$block_mean=round($block_mean/$width);
-			if($block_mean > $this->max_desk[$i*$width]) $block_mean = $this->max_desk[$i*$width];
-			if($block_mean < $this->min_desk) $block_mean = $this->min_desk;
-			print "desks = $block_mean \n";
-			for($ave=0; $ave<$width; $ave++){
-				$element=$i*$width+$ave;
-				$desk_rec[$element]=$block_mean;
-			}
-			$more_work_than_max_desk=0;
-			for($l = 0; $l<$width; $l++){
-				$timeslot = $i*$width+$l;
-				$shifted_work[$timeslot]=$work[$timeslot]+$more_work_than_max_desk;
-				print "desks $desk_rec[$timeslot] shifted $shifted_work[$timeslot] work  $work[$timeslot] more $more_work_than_max_desk \n";
-				if($shifted_work[$timeslot] > $desk_rec[$timeslot]) {$more_work_than_max_desk=$shifted_work[$timeslot]-$desk_rec[$timeslot];
-					$shifted_work[$timeslot] = $desk_rec[$timeslot];
-				}
-				else{ $more_work_than_max_desk=0;}
-			}
-			print "$more_work_than_max_desk \n";
-		}
-		print "H2 \n";
-		print_r($desk_rec);
-		$this->test1=$desk_rec;
-		$timeendtest1 = microtime(true)-$timetest1;
-		print "TIMING TEST 1 $timeendtest1 \n";
-		return $desk_rec;
-	}
-	private function initial_estimate2($work, $width, $s_width)
+
+	private function initial_estimate($work, $width)
 	{
 		$timetest2 = microtime(true);
 		$arraybins = count($work)/$width;
@@ -271,13 +219,11 @@ class Optimisation
 			$work[$i*$width]+=$more_work_than_max_desk;
 			for($j=0;$j<$width;$j++){
 				$element=$i*$width+$j;
-				print "$work[$element]  ";
 				$block_mean+=$work[$element];
 			}
 			$block_mean=ceil($block_mean/$width);
 			if($block_mean > $this->max_desk[$i*$width]) $block_mean = $this->max_desk[$i*$width];
 			if($block_mean < $this->min_desk) $block_mean = $this->min_desk;
-			print "desks = $block_mean \n";
 			for($ave=0; $ave<$width; $ave++){
 				$element=$i*$width+$ave;
 				$desk_rec[$element]=$block_mean;
@@ -286,94 +232,18 @@ class Optimisation
 			for($l = 0; $l<$width; $l++){
 				$timeslot = $i*$width+$l;
 				$shifted_work[$timeslot]=$work[$timeslot]+$more_work_than_max_desk;
-				print "desks $desk_rec[$timeslot] shifted $shifted_work[$timeslot] work  $work[$timeslot] more $more_work_than_max_desk \n";
 				if($shifted_work[$timeslot] > $desk_rec[$timeslot]) {$more_work_than_max_desk=$shifted_work[$timeslot]-$desk_rec[$timeslot];
 					$shifted_work[$timeslot] = $desk_rec[$timeslot];
-					print "$more_work_than_max_desk \n";
 				}
 				else{ $more_work_than_max_desk=0;
 				}
 			}
-			print "$more_work_than_max_desk \n";
 		}
-		print "H3 \n";
-		print_r($desk_rec);
 		$this->test2=$desk_rec;
 		$timeendtest2 = microtime(true)-$timetest2;
-		print "TIMING TEST 2 $timeendtest2 \n";
 		return $desk_rec;
 	}
 
-
-	private function initial_estimate($work, $width, $s_width)
-	{
-		$timetest = microtime(true);
-		$arraybins = count($work)/$width;
-		//Takes the maximum desks array and checks that it is in 15 minute blocks. If it is not - assume the lowest available number of desks available in a block is the maximum number of desks for that block.
-		for($i=0; $i<$arraybins; $i++){
-			$lowest_max_desk=9999999;
-			for($j=0;$j<$width;$j++){
-				$element=$i*$width+$j;
-				if($this->max_desk[$element] < $lowest_max_desk) $lowest_max_desk=$this->max_desk[$element];
-			}
-			for($k=0;$k<$width;$k++){
-				$element=$i*$width+$k;
-				$this->max_desk[$element]=$lowest_max_desk;
-			}
-		}
-		$shifted_work=array();
-		$more_work_than_max_desk = 0;
-		$desk_rec=array();
-		for($timeslot = 0; $timeslot<count($work); $timeslot++){
-			$shifted_work[$timeslot]=$work[$timeslot]+$more_work_than_max_desk;
-			if($shifted_work[$timeslot] > $this->max_desk[$timeslot]) {$more_work_than_max_desk=$shifted_work[$timeslot]-$this->max_desk[$timeslot];
-										   $shifted_work[$timeslot] = $this->max_desk[$timeslot];}
-			else{$more_work_than_max_desk=0;}
-		}
-		$smoothwork=$shifted_work;
-		//Applying a moving average to the work to smooth it out to help us guess desk requirements. Smooth using the previous s_width steps. Start at s_width to ensure there are sufficient previous bins to use for smoothing. 
-		for($j=$s_width; $j < count($work); $j++){
-			for($k=1;$k < $s_width ; $k++){
-				$element_smooth = $j-$k;
-				$smoothwork[$j]=$smoothwork[$j]+$shifted_work[$j-$k];
-			}
-			$smoothwork[$j]=$smoothwork[$j]/$s_width;
-		}
-		//Here - deal with the first s_width steps. Just take the mean and round it. 
-		$storemean=0;
-		for($j=0; $j<$s_width;$j++){
-			$storemean=$storemean+$smoothwork[$j];
-		}
-		$storemean=$storemean/$s_width;
-		for($j=0; $j<$s_width; $j++){
-			$smoothwork[$j] = $storemean;
-		}
-		for($i=0; $i<$arraybins;$i++){
-			$block_mean=0;
-			$smooth_block_max=0;
-			for($j=0;$j<$width;$j++){
-				$element=$i*$width+$j;
-				$block_mean+=$shifted_work[$element];
-				if($smoothwork[$element]>$smooth_block_max) $smooth_block_max=$smoothwork[$element];
-				print "shifted work - $shifted_work[$element] block mean $block_mean smooth work $smoothwork[$element] smooth max $smooth_block_max \n";
-			}
-			$block_mean=$block_mean/$width;
-			$combine_est=ceil(($block_mean+$smooth_block_max)/2);
-			print "final block mean $block_mean final smooth max $smooth_block_max \n";
-			print "COMBINED EST - $combine_est \n";
-			if($combine_est < $this->min_desk) $combine_est = $this->min_desk;
-			for($ave=0; $ave<$width; $ave++){
-				$element=$i*$width+$ave;
-				$desk_rec[$element]=$combine_est;
-			}
-		}
-		print "H1 \n";
-		print_r($desk_rec);
-		$this->test=$desk_rec;
-		$timeendtest = microtime(true)-$timetest;
-		print "TIMING TEST  $timeendtest \n";
-		return $desk_rec;
-	}
 
 	private function branch_bound($starting_x, $time)
 	{
@@ -476,7 +346,7 @@ class Optimisation
 			//If there is no queue, just initialise the array with 0 queue. 
 			$q = array("0");
 		}
-		$wait = array();
+	 	$wait = array();
 		$util = array();
 		$total_wait = 0;
 		$excess_wait = 0;
@@ -492,6 +362,7 @@ class Optimisation
 						);
 				return $return_to_cost;
 			}
+			if($this->current_timeslot+$t == $this->input_queue_time) $q = array($this->input_queue);
 			//Add the work from this minute to the queue.  
 			array_push($q, $work[$t]);
 			//Get the number of desks open. 
@@ -639,20 +510,63 @@ class Optimisation
 		}
 		return $points;
 	} 
-	private function find_best_init_est($desks){
-	print "got here !\n";
-	$test1_sum=0;
-	$test2_sum=0;
-	$test3_sum=0;
 
-	for($time =0; $time<count($desks); $time++){
-		$test1_sum+=abs($desks[$time]-$this->test[$time]);
-		$test2_sum+=abs($desks[$time]-$this->test1[$time]);
-		$test3_sum+=abs($desks[$time]-$this->test2[$time]);	
+	private function calculate_queue_length($work, $capacity){
+	 	$wait = array();
+		$util = array();
+		$total_wait = 0;
+		$excess_wait = 0;
+		$q=array();
+		//Loop through the time slots
+		$average_utilisation=0;
+		for($t=0; $t < count($work); $t++){
+			if($t == $this->input_queue_time){$q = array($this->input_queue);} 
+			//Add the work from this minute to the queue.  
+			array_push($q, $work[$t]);
+			//Get the number of desks open. 
+			$resource = $capacity[$t];
+			//age is how long the queue is - how many minutes the passengers have been waiting. 
+			$age = count($q);
+			while($age > 0){
+				//Surplus is how much resource is left after processing the first slot in the queue. 
+				$surplus = $resource - $q[0];
+				//If there is resource left over
+				if($surplus >=0){
+					//Add the length of time these passengers have been waiting to the queue. 
+					$total_wait=$total_wait+$q[0]*($age-1);
+					//Add the wait to excess wait if there has been an sla breach. 
+					if($age - 1 >= $this->sla){
+						$excess_wait = $excess_wait + $q[0]*($age-1);
+					}
+					//Remove the work in that slot from the queue as it has been processed.
+					unset($q[0]);
+					$q = array_values($q);
+					//The resource that is left over in this slot. 
+					$resource = $surplus;
+				}
+				else {
+					//Add the wait of the passengers processed in this time slot to the queue. (this is not the passengers in the slot - as only some are processed - the rest will be waiting longer).
+					$total_wait = $total_wait + $resource*($age-1);
+					if($age-1 >= $this->sla){
+						$excess_wait = $excess_wait + $resource*($age - 1);
+					}
+					//Remove the number of passengers processed from this queue slot. 
+					$q[0] = $q[0] - $resource;
+					$resource= 0;
+					//All the resource has now been used up so move onto the next minute.  
+					break;
+				}
+				//All of the resource has not been used up yet so move to the next slot of the queue. 
+				$age = $age - 1;
+			}
+			$wait[$t] = count($q);
+			$util[$t] = 1 - ($resource / $capacity[$t]);
+			$average_utilisation+=1-$resource/$capacity[$t];
 		}
-	print "H1 = $test1_sum H2 = $test2_sum H3 = $test3_sum \n";
+		$average_utilisation = $average_utilisation/count($work);
+		//print "average utilisation : $average_utilisation \n";
+	return $wait;	
 
-		
 	}
 
 

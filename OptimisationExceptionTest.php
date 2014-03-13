@@ -4,42 +4,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 {
 	/**
 	* @expectedException exception
-	* @expectedExceptionMessage Incorrectly configured. Smoothing width must be less than or equal to window width
-	*/
-	public function testException_SmoothingWidthLessThanWindowWidth()
-	{
-		$work = array();
-		$answer = array();
-		$max_desk = array();
-		$desks = array();
-		for($i=0; $i<30 ; $i++){
-			array_push($desks, 0);
-			array_push($work, 15);
-			array_push($answer, 15);
-			array_push($max_desk, 15);
-		}
-		$set_options=array('weight_sla'=>10, 
-				'weight_pax'=>1, 
-				'weight_staff'=>3, 
-				'weight_churn'=>45, 
-				'block_width'=>3, 
-				'smoothing_width'=>31, 
-				'window_width'=>12, 
-				'window_step'=>6, 
-				'concavity_limit'=>30, 
-				'min_desk'=>1, 
-				'max_desk'=>$max_desk, 
-				'sla'=>12, 
-				'time_limit'=>100, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
-				);
-		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
-	}
-
-	/**
-	* @expectedException exception
 	* @expectedExceptionMessage Incorrectly configured. Win Width is smaller than win step - so some bins will be skipped over in the calculation
 	*/
 	public function testException_WinStepLessThanWinWidth()
@@ -48,18 +12,19 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($max_desk, 15);
 			array_push($desks, 0);
+			array_push($queues, 0);
 		}
 		$set_options=array('weight_sla'=>10, 
 				'weight_pax'=>1, 
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>7, 
 				'concavity_limit'=>30, 
@@ -67,11 +32,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>100, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 
 	/**
@@ -84,18 +48,19 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks=array();
+		$queues=array();
 		for($i=0; $i<30 ; $i++){
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($max_desk, 15);
 			array_push($desks, 0);
+			array_push($queues, 0);
 		}
 		$set_options=array('weight_sla'=>10, 
 				'weight_pax'=>1, 
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>6, 
 				'concavity_limit'=>-1, 
@@ -103,11 +68,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>100, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -119,8 +83,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($max_desk, 15);
 			array_push($work, 15);
 			array_push($answer, 15);
@@ -130,7 +96,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -138,11 +103,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>-1, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -154,8 +118,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($max_desk, 15);
@@ -165,7 +131,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -173,11 +138,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 
 	/**
@@ -190,8 +154,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();	
+		$queues = array();	
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($max_desk, -1);
@@ -201,7 +167,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -209,11 +174,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -225,8 +189,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($max_desk, 7);
@@ -236,7 +202,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -244,11 +209,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 
 	/**
@@ -261,8 +225,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk = array();
 		$desks=array();
+		$queues=array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($max_desk, 7);
@@ -272,7 +238,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -280,11 +245,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -296,8 +260,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk = array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($max_desk, 7.5);
@@ -307,7 +273,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -315,11 +280,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -331,18 +295,19 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($max_desk, 10);
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($desks, 0);
+			array_push($queues, 0);
 		}
 		$set_options=array('weight_sla'=>10, 
 				'weight_pax'=>1, 
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3.5, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -350,11 +315,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks, $set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -366,8 +330,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks= array();
+		$queues= array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($max_desk, 10);
 			array_push($work, 15);
 			array_push($answer, 15);
@@ -377,7 +343,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>-3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -385,83 +350,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks, $set_options);
-	}
-
-	/**
-	* @expectedException exception
-	* @expectedExceptionMessage Incorrectly configured. Smoothing width must be a positive integer
-	*/
-	public function testException12()
-	{
-		$work = array();
-		$answer = array();
-		$max_desk=array();
-		$desks = array();
-		for($i=0; $i<30 ; $i++){
-			array_push($desks, 0);
-			array_push($work, 15);
-			array_push($answer, 15);
-			array_push($max_desk, 10);
-		}
-		$set_options=array('weight_sla'=>10, 
-				'weight_pax'=>1, 
-				'weight_staff'=>3, 
-				'weight_churn'=>45, 
-				'block_width'=>3, 
-				'smoothing_width'=>3.5, 
-				'window_width'=>6, 
-				'window_step'=>6, 
-				'concavity_limit'=>30, 
-				'min_desk'=>1, 
-				'max_desk'=>$max_desk, 
-				'sla'=>12, 
-				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
-				);
-		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
-	}
-
-	/**
-	* @expectedException exception
-	* @expectedExceptionMessage Incorrectly configured. Smoothing width must be a positive integer
-	*/
-	public function testException_NegativeSmoothingWidth()
-	{
-		$work = array();
-		$answer = array();
-		$max_desk=array();
-		$desks=array();
-		for($i=0; $i<30 ; $i++){
-			array_push($desks, 0);
-			array_push($work, 15);
-			array_push($answer, 15);
-			array_push($max_desk, 10);
-		}
-		$set_options=array('weight_sla'=>10, 
-				'weight_pax'=>1, 
-				'weight_staff'=>3, 
-				'weight_churn'=>45, 
-				'block_width'=>3, 
-				'smoothing_width'=>-3, 
-				'window_width'=>6, 
-				'window_step'=>6, 
-				'concavity_limit'=>30, 
-				'min_desk'=>1, 
-				'max_desk'=>$max_desk, 
-				'sla'=>12, 
-				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
-				);
-		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -473,8 +365,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($max_desk, 10);
@@ -484,7 +378,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>6.5, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -492,11 +385,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -508,8 +400,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($max_desk, 10);
 			array_push($work, 15);
 			array_push($answer, 15);
@@ -519,7 +413,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>-6, 
 				'window_step'=>-7, 
 				'concavity_limit'=>30, 
@@ -527,11 +420,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks, $set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 
 	/**
@@ -544,18 +436,19 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($work, 15);
 			array_push($answer, 15);
 			array_push($max_desk, 10);
 			array_push($desks, 10);
+			array_push($queues, 10);
 		}
 		$set_options=array('weight_sla'=>10, 
 				'weight_pax'=>1, 
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>3, 
-				'smoothing_width'=>3, 
 				'window_width'=>9, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -563,11 +456,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -579,8 +471,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk = array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks,0);
+			array_push($queues,0);
 			array_push($max_desk, 10);
 			array_push($work, 15);
 			array_push($answer, 15);
@@ -590,7 +484,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>4, 
-				'smoothing_width'=>3, 
 				'window_width'=>16, 
 				'window_step'=>6, 
 				'concavity_limit'=>30, 
@@ -598,46 +491,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
-	}
-	/**
-	* @expectedException exception
-	* @expectedExceptionMessage Incorrectly configured. Smoothing width must be less than or equal to window width
-	*/
-	public function testException_SmoothingWidthGreaterThanWindowWidth()
-	{
-		$work = array();
-		$answer = array();
-		$max_desk=array();
-		$desks = array();
-		for($i=0; $i<30 ; $i++){
-			array_push($desks, 0);
-			array_push($max_desk, 10);
-			array_push($work, 15);
-			array_push($answer, 15);
-		}
-		$set_options=array('weight_sla'=>10, 
-				'weight_pax'=>1, 
-				'weight_staff'=>3, 
-				'weight_churn'=>45, 
-				'block_width'=>2, 
-				'smoothing_width'=>20, 
-				'window_width'=>16, 
-				'window_step'=>6, 
-				'concavity_limit'=>30, 
-				'min_desk'=>1, 
-				'max_desk'=>$max_desk, 
-				'sla'=>12, 
-				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
-				);
-		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 	/**
 	* @expectedException exception
@@ -649,8 +506,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($max_desk, 10);
 			array_push($work, 15);
 			array_push($answer, 15);
@@ -660,7 +519,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>2, 
-				'smoothing_width'=>16, 
 				'window_width'=>16, 
 				'window_step'=>7, 
 				'concavity_limit'=>30, 
@@ -668,11 +526,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
-		$b=$a->Optimise($work,$desks,$set_options);
+		$b=$a->Optimise($work,$desks,$queues,$set_options);
 	}
 
 	/**
@@ -685,8 +542,10 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 		$answer = array();
 		$max_desk=array();
 		$desks = array();
+		$queues = array();
 		for($i=0; $i<30 ; $i++){
 			array_push($desks, 0);
+			array_push($queues, 0);
 			array_push($max_desk, 10);
 			array_push($work, 15);
 			array_push($answer, 15);
@@ -696,7 +555,6 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'weight_staff'=>3, 
 				'weight_churn'=>45, 
 				'block_width'=>2, 
-				'smoothing_width'=>16, 
 				'window_width'=>16, 
 				'window_step'=>7, 
 				'concavity_limit'=>30, 
@@ -704,11 +562,155 @@ class ExceptionTest extends PHPUnit_Framework_TestCase
 				'max_desk'=>$max_desk, 
 				'sla'=>12, 
 				'time_limit'=>10, 
-				'existing_queue'=>0, 
-				'existing_staff'=>0, 
+				'input_queue'=>0, 
 				);
 		$a = new Optimisation();
 		$b=$a->Optimise($work,$set_options);
+	}
+
+	/**
+	* @expectedException exception
+	* @expectedExceptionMessage Incorrectly configured. Input queue time must be a positive integer
+	*/
+	public function testException_NegativeInputQueueTime()
+	{
+		$work = array();
+		$answer = array();
+		$max_desk=array();
+		$desks = array();
+		$queues = array();
+		for($i=0; $i<30 ; $i++){
+			array_push($desks, 0);
+			array_push($queues, 0);
+			array_push($max_desk, 10);
+			array_push($work, 15);
+			array_push($answer, 15);
+		}
+		$set_options=array('weight_sla'=>10, 
+				'weight_pax'=>1, 
+				'weight_staff'=>3, 
+				'weight_churn'=>45, 
+				'block_width'=>15, 
+				'window_width'=>90, 
+				'window_step'=>60, 
+				'concavity_limit'=>30, 
+				'min_desk'=>1, 
+				'max_desk'=>$max_desk, 
+				'sla'=>12, 
+				'time_limit'=>10, 
+				'input_queue'=>0, 
+				'input_queue_time'=>-100,
+				);
+		$a = new Optimisation();
+		$b=$a->Optimise($work,$desks, $queues,$set_options);
+	}
+	
+	/**
+	* @expectedException exception
+	* @expectedExceptionMessage Incorrectly configured. Input queue time must be a positive integer
+	*/
+	public function testException_NonIntInputQueueTime()
+	{
+		$work = array();
+		$answer = array();
+		$max_desk=array();
+		$desks = array();
+		$queues = array();
+		for($i=0; $i<30 ; $i++){
+			array_push($desks, 0);
+			array_push($queues, 0);
+			array_push($max_desk, 10);
+			array_push($work, 15);
+			array_push($answer, 15);
+		}
+		$set_options=array('weight_sla'=>10, 
+				'weight_pax'=>1, 
+				'weight_staff'=>3, 
+				'weight_churn'=>45, 
+				'block_width'=>15, 
+				'window_width'=>90, 
+				'window_step'=>60, 
+				'concavity_limit'=>30, 
+				'min_desk'=>1, 
+				'max_desk'=>$max_desk, 
+				'sla'=>12, 
+				'time_limit'=>10, 
+				'input_queue'=>0, 
+				'input_queue_time'=>0.056786,
+				);
+		$a = new Optimisation();
+		$b=$a->Optimise($work,$desks, $queues,$set_options);
+	}
+
+	/**
+	* @expectedException exception
+	* @expectedExceptionMessage Input queue length specified but also need input queue time
+	*/
+	public function testException_InputQueueNoInputTime()
+	{
+		$work = array();
+		$answer = array();
+		$max_desk=array();
+		$desks = array();
+		$queues = array();
+		for($i=0; $i<30 ; $i++){
+			array_push($desks, 0);
+			array_push($queues, 0);
+			array_push($max_desk, 10);
+			array_push($work, 15);
+			array_push($answer, 15);
+		}
+		$set_options=array('weight_sla'=>10, 
+				'weight_pax'=>1, 
+				'weight_staff'=>3, 
+				'weight_churn'=>45, 
+				'block_width'=>15, 
+				'window_width'=>90, 
+				'window_step'=>60, 
+				'concavity_limit'=>30, 
+				'min_desk'=>1, 
+				'max_desk'=>$max_desk, 
+				'sla'=>12, 
+				'time_limit'=>10, 
+				'input_queue'=>190, 
+				);
+		$a = new Optimisation();
+		$b=$a->Optimise($work,$desks, $queues,$set_options);
+	}
+	/**
+	* @expectedException exception
+	* @expectedExceptionMessage Input queue time specified but not input queue length
+	*/
+	public function testException_InputQueueTimeNoInputQueueLength()
+	{
+		$work = array();
+		$answer = array();
+		$max_desk=array();
+		$desks = array();
+		$queues = array();
+		for($i=0; $i<30 ; $i++){
+			array_push($desks, 0);
+			array_push($queues, 0);
+			array_push($max_desk, 10);
+			array_push($work, 15);
+			array_push($answer, 15);
+		}
+		$set_options=array('weight_sla'=>10, 
+				'weight_pax'=>1, 
+				'weight_staff'=>3, 
+				'weight_churn'=>45, 
+				'block_width'=>15, 
+				'window_width'=>90, 
+				'window_step'=>60, 
+				'concavity_limit'=>30, 
+				'min_desk'=>1, 
+				'max_desk'=>$max_desk, 
+				'sla'=>12, 
+				'time_limit'=>10, 
+				'input_queue_time'=>10, 
+				);
+		$a = new Optimisation();
+		$b=$a->Optimise($work,$desks, $queues,$set_options);
 	}
 
 

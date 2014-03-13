@@ -1,0 +1,8 @@
+The return codes are as follows:
+0 : Completed successfully
+1 : Timed out
+2 : Insufficient manpower to process all the work
+3 : Forced to change configuration as some necessary variables were missing from configuration passed
+4 : Fatal error within optimisation - initial estimate was returned instead.
+
+The codes can be returned in any combination, i.e. 12 means that the code timed out AND there was insufficient manpower.  

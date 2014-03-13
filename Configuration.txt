@@ -1,0 +1,15 @@
+weight_sla - Weight placed on breaching the sla. Must be high in comparison to pax and staff to deter sla breaches. Default is set at 10.
+weight_pax - Weight placed on passenger waiting time. Default is set at 1. 
+weight_staff - Weight placed on staff waiting time. Default is set at 3.
+weight_churn - Weight placed on staff having to open a desk. Each time staff open 1 desk, this weight is applied. Default is set at 45. Must be high to deter constant reopening and closing of desks. 
+block_width - The segments of time for which a desk allocation is returned. Default is 15 minutes, which means that there is 1 desk allocation recommendation for every 15 minutes. Desks will not open or close in any shorter time period than block_width. Window width and window step must be a multiple of this number.
+smoothing_width - still used?
+window_width - The amount of time optimised at once. Default is set at 90. This means that 90 minute windows are optimised each time. When block_width is set to 15, this means each window will recommend 6 desk allocations (1 per 15 minutes). Increasing window width will increase the processing time as the number of steps increases factorially. 
+window_step - Must be smaller than window_width to ensure that the windows overlap. Window overlap ensures continuity throughout the day. Default is set to 60.
+concavity_limit - A feature of branch and bound. A larger concavity limit means you are likely to find the true optimum but will degrade processing time. Default is set to 30.
+min_desk - minimum number of desks that can be open. 
+max_desk - maximum number of desks that can be open. Can be an array or a single number. 
+sla - the service level agreement
+time_limit - the processing time before the algorithm gives up and returns its best estimate so far.
+input_queue - allows the CIO to input the queue if Dr T seems to be getting it wrong. Not expected to be used in the first few versions.
+input_queue_time - the time that the CIO is inputting the queue
