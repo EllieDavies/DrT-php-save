@@ -128,13 +128,13 @@ class OptimisationTest extends PHPUnit_Framework_TestCase
 		$desks=array();
 		$queues=array();
 		$max_desk = array();
-		for($i=0; $i<1440; $i++){
+		for($i=0; $i<60; $i++){
 			array_push($desks, 0);
 			array_push($queues, 0);
 			array_push($max_desk, 10);
 	}	
 		$answer = array();
-		for($i=0; $i<1440 ; $i++){
+		for($i=0; $i<60 ; $i++){
 			array_push($work, 25);
 			array_push($answer,10);
 		}
@@ -323,7 +323,7 @@ class OptimisationTest extends PHPUnit_Framework_TestCase
 		for($i=0; $i<90; $i++){
 			array_push($desks, 0);
 			array_push($queues, 0);
-			array_push($storequeues, intval($i/11+1));
+			array_push($storequeues, intval($i/10+1));
 			array_push($max_desk, 10);
 		}	
 		$answer = array();

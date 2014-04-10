@@ -80,7 +80,7 @@ class Optimisation
 		elseif(count($set_options["max_desk"])==1){for($push=0; $push < $this->work_length; $push++){array_push($this->max_desk, $set_options["max_desk"]);}}
 		else{$this->max_desk=$set_options["max_desk"];}
 		if(!array_key_exists("sla", $set_options)){throw new Exception('Undefined SLA');}
-		else{ $this->sla=$set_options["sla"];}
+		else{ $this->sla=ceil(0.8*$set_options["sla"]);}
 		if(!array_key_exists("time_limit", $set_options)){throw new Exception('Undefined SLA');}
 		else{ $this->time_limit=$set_options["time_limit"];}
 		return 1;
@@ -117,8 +117,8 @@ class Optimisation
 		$empty_arr=array();
 		for($z=0; $z<$this->work_length;$z++){array_push($empty_arr, 0);}
 		if($empty_arr==$desks){
-		$desks=$this->initial_estimate($work, $this->block_width);}
-		$queues = $this->calculate_queue_length($work, $desks);
+		$desks=$this->initial_estimate($work, $this->block_width);
+		$queues = $this->calculate_queue_length($work, $desks);}
 		//Iterate over the windows. Windows will tend to overlap with each other. 
 		try{
 		for($time=$win_start; $time<count($work); $time=$time+$this->window_step){
@@ -338,7 +338,7 @@ class Optimisation
 		if(count($this->existing_queue) > 0){
 			$startq = $this->existing_queue[0];
 			$q=array("$startq");
-			for($get_q =1 ;$get_q < count($this->existing_queue)-1; $get_q++){
+			for($get_q =1 ;$get_q < count($this->existing_queue); $get_q++){
 				array_push($q, $this->existing_queue[$get_q]);
 			}
 		}
@@ -370,6 +370,7 @@ class Optimisation
 			//age is how long the queue is - how many minutes the passengers have been waiting. 
 			$age = count($q);
 			while($age > 0){
+				//if($t==0 || $t==(count($work)-1)){
 				//Surplus is how much resource is left after processing the first slot in the queue. 
 				$surplus = $resource - $q[0];
 				//If there is resource left over
@@ -513,18 +514,23 @@ class Optimisation
 
 	private function calculate_queue_length($work, $capacity){
 	 	$wait = array();
+		$orig_wait = array();
 		$util = array();
 		$total_wait = 0;
 		$excess_wait = 0;
 		$q=array();
 		//Loop through the time slots
 		$average_utilisation=0;
-		for($t=0; $t < count($work); $t++){
+		for($t=0; $t < count($work)+60; $t++){
 			if($t == $this->input_queue_time){$q = array($this->input_queue);} 
 			//Add the work from this minute to the queue.  
-			array_push($q, $work[$t]);
+			if($t<count($work)){
+			array_push($q, $work[$t]);}
+			else{array_push($q, 0);}
 			//Get the number of desks open. 
-			$resource = $capacity[$t];
+			if($t < count($work)){
+			$resource = $capacity[$t];}
+			else{$resource = $capacity[count($work)-1];}
 			//age is how long the queue is - how many minutes the passengers have been waiting. 
 			$age = count($q);
 			while($age > 0){
@@ -534,6 +540,11 @@ class Optimisation
 				if($surplus >=0){
 					//Add the length of time these passengers have been waiting to the queue. 
 					$total_wait=$total_wait+$q[0]*($age-1);
+					$wait[$t] = 0;
+					if($q[0] > 0){
+					$q_len=count($q)-1;
+					$wait[$t-$q_len] = $q_len;
+					}
 					//Add the wait to excess wait if there has been an sla breach. 
 					if($age - 1 >= $this->sla){
 						$excess_wait = $excess_wait + $q[0]*($age-1);
@@ -547,6 +558,11 @@ class Optimisation
 				else {
 					//Add the wait of the passengers processed in this time slot to the queue. (this is not the passengers in the slot - as only some are processed - the rest will be waiting longer).
 					$total_wait = $total_wait + $resource*($age-1);
+					if($q[0] > 0){
+					$wait[$t] = 0;
+					$q_len=count($q)-1;
+					$wait[$t-$q_len] = $q_len;
+					}
 					if($age-1 >= $this->sla){
 						$excess_wait = $excess_wait + $resource*($age - 1);
 					}
@@ -559,12 +575,20 @@ class Optimisation
 				//All of the resource has not been used up yet so move to the next slot of the queue. 
 				$age = $age - 1;
 			}
-			$wait[$t] = count($q);
+			$orig_wait[$t]=count($q);
+			if($t < count($work)){
 			$util[$t] = 1 - ($resource / $capacity[$t]);
-			$average_utilisation+=1-$resource/$capacity[$t];
+			$average_utilisation+=1-$resource/$capacity[$t];}
 		}
 		$average_utilisation = $average_utilisation/count($work);
-		//print "average utilisation : $average_utilisation \n";
+		for($time =1; $time < count($work); $time++){
+			if($wait[$time]==0 && $wait[$time-1] > 1){
+				$wait[$time]=$wait[$time-1]-1;	
+			}
+		}
+		for($remove = count($work); $remove < count($work)+60; $remove++){
+			unset($wait[$remove]);
+		}
 	return $wait;	
 
 	}
