@@ -773,6 +773,78 @@ class OptimisationTest extends PHPUnit_Framework_TestCase
 		$this->assertEquals($answer, $desks);
 	}
 
+	public function testChangeMinDeskArray()
+	{
+		$work = array();
+		$desks=array();
+		$queues=array();
+		$max_desk = 10;
+		$min_desk = array();
+		$answer = array();
+		for($i=0; $i<60; $i++){
+			array_push($desks, 0);
+			array_push($queues, 0);
+			if($i>=15 && $i<45){ $min_desk[$i] = 5; $answer[$i] = 5;}
+			else{ $min_desk[$i] = 2; $answer[$i] = 2;}
+		}	
+		for($i=0; $i<60 ; $i++){
+			array_push($work, 0);
+		}
+		$set_options=array('weight_sla'=>10, 
+				'weight_pax'=>1, 
+				'weight_staff'=>3, 
+				'weight_churn'=>45, 
+				'block_width'=>15, 
+				'window_width'=>90, 
+				'window_step'=>60, 
+				'concavity_limit'=>30, 
+				'min_desk'=>$min_desk, 
+				'max_desk'=>$max_desk, 
+				'sla'=>12, 
+				'time_limit'=>100, 
+				'input_queue'=>0, 
+				);
 
+		$a = new Optimisation();
+		$b=$a->Optimise($work, $desks,$queues, $set_options);
+		$this->assertEquals($answer, $desks);
+	}
+
+	public function testChangeMaxDeskArray()
+	{
+		$work = array();
+		$desks=array();
+		$queues=array();
+		$max_desk = array();
+		$min_desk = 1;
+		$answer = array();
+		for($i=0; $i<60; $i++){
+			array_push($desks, 0);
+			array_push($queues, 0);
+			if($i>=15 && $i<45){ $max_desk[$i] = 10; $answer[$i] = 10;}
+			else{ $max_desk[$i] = 8; $answer[$i] = 8;}
+		}	
+		for($i=0; $i<60 ; $i++){
+			array_push($work, 20);
+		}
+		$set_options=array('weight_sla'=>10, 
+				'weight_pax'=>1, 
+				'weight_staff'=>3, 
+				'weight_churn'=>45, 
+				'block_width'=>15, 
+				'window_width'=>90, 
+				'window_step'=>60, 
+				'concavity_limit'=>30, 
+				'min_desk'=>$min_desk, 
+				'max_desk'=>$max_desk, 
+				'sla'=>12, 
+				'time_limit'=>100, 
+				'input_queue'=>0, 
+				);
+
+		$a = new Optimisation();
+		$b=$a->Optimise($work, $desks,$queues, $set_options);
+		$this->assertEquals($answer, $desks);
+	}
 
 }

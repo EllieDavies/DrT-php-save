@@ -6,7 +6,7 @@ class Optimisation
 	private $config_change;
 	private $timed_out;
 	private $time_end;
-	private $min_desk;
+	private $min_desk = array();
 	private $max_desk = array();
 	private $sla;
 	private $weight_sla;
@@ -75,6 +75,7 @@ class Optimisation
 		if(!array_key_exists("input_queue", $set_options)){ $this->input_queue=0;}
 		else{ $this->input_queue=$set_options["input_queue"];}
 		if(!array_key_exists("min_desk", $set_options)){throw new Exception('Undefined minimum desk requirement');}
+		elseif(count($set_options["min_desk"])==1){for($push=0; $push < $this->work_length; $push++){array_push($this->min_desk, $set_options["min_desk"]);}}
 		else{$this->min_desk=$set_options["min_desk"];}
 		if(!array_key_exists("max_desk", $set_options)){throw new Exception('Undefined maximum desk requirement');}
 		elseif(count($set_options["max_desk"])==1){for($push=0; $push < $this->work_length; $push++){array_push($this->max_desk, $set_options["max_desk"]);}}
@@ -90,8 +91,8 @@ class Optimisation
 		if($this->time_limit < 0) throw new Exception('Incorrectly configured. Time limit must be greater than 0'); 
 		if($this->window_step > $this->window_width) throw new Exception('Incorrectly configured. Win Width is smaller than win step - so some bins will be skipped over in the calculation');
 		if($this->concavity_limit <0) throw new Exception('Incorrectly configured. Concavity limit must be greater than 0');
-		if($this->min_desk < 0) throw new Exception('Incorrectly configured. Cannot have negative numbers of desks open');
-		if(!is_int($this->min_desk)) throw new Exception('Incorrectly configured. Minimum desks open must be an integer'); 
+		foreach($this->min_desk as $min){ if($min < 0) throw new Exception('Incorrectly configured. Cannot have negative numbers of desks open');
+		if(!is_int($min)) throw new Exception('Incorrectly configured. Minimum desks open must be an integer');}
 		if(!is_int($this->block_width) || $this->block_width<0) throw new Exception('Incorrectly configured. Block width must be a positive integer');
 		if(!is_int($this->window_width) || $this->window_width<0) throw new Exception('Incorrectly configured. Window width must be a positive integer');
 		if($this->window_width % (2*$this->block_width) !=0)throw new Exception('Incorrectly configured. Window width should be an even multiple of Block width');
@@ -99,7 +100,7 @@ class Optimisation
 		if($this->window_step%$this->block_width!=0 || $this->window_step<0)throw new Exception('Incorrectly configured. Window step should be a multiple of or equal to block width');
 		if($this->window_width > $this->work_length) $this->window_width = $this->work_length;
 		foreach($this->max_desk as $testdesk) if($testdesk < 0 || !is_int($testdesk)) throw new Exception('Incorrectly configured, max_desk array must be all integers');
-		foreach($this->max_desk as $testdesk) if($testdesk < $this->min_desk) throw new Exception('Incorrectly configured, max desk array must be all greater than or equal to min desks');
+		for($deskloop=0; $deskloop < count($this->max_desk); $deskloop++){ if($this->max_desk[$deskloop] < $this->min_desk[$deskloop]) throw new Exception('Incorrectly configured, max desk array must be all greater than or equal to min desks');}
 		if(!is_int($this->input_queue_time) || $this->input_queue_time < 0) throw new Exception('Incorrectly configured. Input queue time must be a positive integer');
 		return "1";
 	}
@@ -202,13 +203,16 @@ class Optimisation
 		//Takes the maximum desks array and checks that it is in 15 minute blocks. If it is not - assume the lowest available number of desks available in a block is the maximum number of desks for that block.
 		for($i=0; $i<$arraybins; $i++){
 			$lowest_max_desk=9999999;
+			$highest_min_desk=0;
 			for($j=0;$j<$width;$j++){
 				$element=$i*$width+$j;
 				if($this->max_desk[$element] < $lowest_max_desk) $lowest_max_desk=$this->max_desk[$element];
+				if($this->min_desk[$element] > $highest_min_desk) $highest_min_desk = $this->min_desk[$element];
 			}
 			for($k=0;$k<$width;$k++){
 				$element=$i*$width+$k;
 				$this->max_desk[$element]=$lowest_max_desk;
+				$this->min_desk[$element] = $highest_min_desk;
 			}
 		}
 		$more_work_than_max_desk=0;
@@ -223,7 +227,7 @@ class Optimisation
 			}
 			$block_mean=ceil($block_mean/$width);
 			if($block_mean > $this->max_desk[$i*$width]) $block_mean = $this->max_desk[$i*$width];
-			if($block_mean < $this->min_desk) $block_mean = $this->min_desk;
+			if($block_mean < $this->min_desk[$i*$width]) $block_mean = $this->min_desk[$i*$width];
 			for($ave=0; $ave<$width; $ave++){
 				$element=$i*$width+$ave;
 				$desk_rec[$element]=$block_mean;
@@ -489,8 +493,8 @@ class Optimisation
 		//Refill the neighbouring points at the point cursor. x is the array. orig is the best guess so far at the point cursor is at. cursor tells the function which points in x to refill. 
 		$points = $x;
 		$timeslot = $time+$cursor*$this->block_width;
-		for($j = 1; $j < ($this->max_desk[$timeslot]-$this->min_desk)+1;$j++){
-			if($orig-$j >= $this->min_desk) array_push($points[$cursor], ($orig-$j));
+		for($j = 1; $j < ($this->max_desk[$timeslot]-$this->min_desk[$timeslot])+1;$j++){
+			if($orig-$j >= $this->min_desk[$timeslot]) array_push($points[$cursor], ($orig-$j));
 			if($orig+$j <= $this->max_desk[$timeslot]) array_push($points[$cursor], ($orig+$j));
 
 		}
@@ -504,8 +508,8 @@ class Optimisation
 			$timeslot = $time+$i*$this->block_width;
 			$orig = $points[$i];
 			$points[$i] = array();
-			for($j = 1; $j < ($this->max_desk[$timeslot]-$this->min_desk)+1;$j++){
-				if($orig-$j >= $this->min_desk) array_push($points[$i], ($orig-$j));
+			for($j = 1; $j < ($this->max_desk[$timeslot]-$this->min_desk[$timeslot])+1;$j++){
+				if($orig-$j >= $this->min_desk[$timeslot]) array_push($points[$i], ($orig-$j));
 				if($orig+$j <= $this->max_desk[$timeslot]) array_push($points[$i], ($orig+$j));
 			}
 		}

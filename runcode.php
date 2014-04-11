@@ -13,6 +13,7 @@ while($data=fgetcsv($fd)){
 	if(Is_Numeric($data[3]) && $data[0]==2){
 	//if(Is_Numeric($data[3])){
 		array_push($work, $data[3]);
+		//array_push($work, 17);
 		array_push($desks, 0);
 		array_push($test, 0);}
 		
@@ -20,8 +21,9 @@ while($data=fgetcsv($fd)){
 fclose($fd);
 
 $queues = array();
-$max_desk = 25;
-for($i=0; $i<count($work); $i++){
+$max_desk = 12;
+$min_desk = 0;
+for($i=0; $i<1440; $i++){
 array_push($queues, 0);
 }
 
@@ -33,7 +35,7 @@ $set_options=array(     'weight_sla'=>10,
 			'window_width'=>90, 
 			'window_step'=>60, 
 			'concavity_limit'=>30, 
-			'min_desk'=>1, 
+			'min_desk'=>$min_desk, 
 			'max_desk'=>$max_desk, 
 			'sla'=>25, 
 			'time_limit'=>21, 
